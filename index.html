@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Model AI Saya</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 24px;
+      color: #222;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin: 12px 0;
+      color: #475569;
+    }
+
+    #webcam-container {
+      margin-top: 16px;
+    }
+
+    #webcam-container canvas {
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      max-width: 100%;
+    }
+
+    #label-container {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    #label-container div {
+      background: #f1f5f9;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Model AI Saya</h1>
+    <p>Klik tombol Start, lalu izinkan akses kamera.</p>
+
+    <button id="start-btn" type="button" onclick="init()">Start</button>
+    <div id="status"></div>
+
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script>
+    const URL = "./my_model/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    const startBtn = document.getElementById("start-btn");
+    const statusEl = document.getElementById("status");
+
+    async function init() {
+      startBtn.disabled = true;
+      statusEl.textContent = "Memuat model...";
+
+      try {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        const flip = true;
+        webcam = new tmImage.Webcam(300, 300, flip);
+        await webcam.setup();
+        await webcam.play();
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+        labelContainer = document.getElementById("label-container");
+        labelContainer.innerHTML = "";
+
+        for (let i = 0; i < maxPredictions; i++) {
+          labelContainer.appendChild(document.createElement("div"));
+        }
+
+        statusEl.textContent = "Model berjalan. Arahkan objek ke kamera.";
+        window.requestAnimationFrame(loop);
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = "Gagal memuat model atau kamera: " + error.message;
+        startBtn.disabled = false;
+      }
+    }
+
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+
+      for (let i = 0; i < maxPredictions; i++) {
+        const classPrediction =
+          prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+        labelContainer.childNodes[i].innerHTML = classPrediction;
+      }
+    }
+  </script>
+</body>
+</html>
